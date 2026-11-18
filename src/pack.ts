@@ -11,12 +11,15 @@ export const sdkBaseUrl = `${window.location.origin}${import.meta.env.BASE_URL}`
 export const licenseKey: string | undefined = import.meta.env.VITE_NUTRIENT_LICENSE_KEY || undefined;
 
 /**
- * Office engine variant. "faster" (SDK default) downloads a ~18 MB (compressed) ahead-of-time compiled
- * module and converts quicker; "smaller" downloads ~3.5 MB but converts slower. Override with ?engine=smaller|faster.
+ * Office engine variant. Measured against the Vercel deployment from a cold browser cache:
+ *   smallerSize (our default): engine ready in ~12 s,  ~1.6 s per Word/Excel conversion
+ *   fasterProcessing (SDK default): engine ready in ~120 s (~10x more to download), ~1.3 s per conversion
+ * A first visit matters more than 0.3 s per document, so we default to the compact engine.
+ * Override with ?engine=faster.
  */
 const engineParam = new URLSearchParams(window.location.search).get("engine");
 export const processorEngine =
-  engineParam === "smaller" ? NutrientViewer.ProcessorEngine.smallerSize : NutrientViewer.ProcessorEngine.fasterProcessing;
+  engineParam === "faster" ? NutrientViewer.ProcessorEngine.fasterProcessing : NutrientViewer.ProcessorEngine.smallerSize;
 /** SDK options shared by every load / convert / preload call. */
 export const sdkConfig = { baseUrl: sdkBaseUrl, licenseKey, processorEngine };
 
@@ -58,6 +61,7 @@ export function fileKind(name: string): PackSource["kind"] {
  * Real conversions wait for the warm-up so the two never run concurrently.
  */
 let engineReady: Promise<void> | null = null;
+let officeQueue: Promise<void> = Promise.resolve();
 
 export function warmUpEngines(onState: (state: "loading" | "ready" | "failed", ms: number) => void): void {
   if (engineReady) return;
@@ -87,8 +91,11 @@ export async function toPdf(name: string, data: ArrayBuffer): Promise<ArrayBuffe
   const kind = fileKind(name);
   if (kind === "pdf") return data;
   if (kind === "other") throw new Error(`Unsupported file type: ${name}`);
-  if (engineReady) await engineReady;
-  return convertOffice(data);
+  // One Office conversion at a time (background pre-conversion and a user's View click can overlap).
+  // The queue starts behind the warm-up, so a real conversion never races it.
+  const run = officeQueue.then(() => engineReady).then(() => convertOffice(data));
+  officeQueue = run.then(() => undefined, () => undefined);
+  return run;
 }
 
 /**
@@ -96,24 +103,33 @@ export async function toPdf(name: string, data: ArrayBuffer): Promise<ArrayBuffe
  * in a headless SDK instance and adds one bookmark per source document. Returns the combined PDF.
  */
 /** Converted PDFs held in memory, keyed by store path, so a document previewed in step 1 isn't converted twice. */
-export type PdfCache = Map<string, { pdf: ArrayBuffer; convertMs: number }>;
+/**
+ * Holds the conversion *promise* per path, so a document being converted in the background is awaited
+ * rather than converted a second time when the user clicks View or Build.
+ */
+export type PdfCache = Map<string, Promise<{ pdf: ArrayBuffer; convertMs: number; downloadMs: number }>>;
 
-/** Downloads one file (into memory) and returns it as PDF, using the cache when it was already converted. */
+/** Downloads one file (into memory) and returns it as PDF, reusing a finished or in-flight conversion. */
 export async function getPdf(
   store: DocumentStore,
   file: { name: string; path: string },
   cache: PdfCache,
 ): Promise<{ pdf: ArrayBuffer; convertMs: number; downloadMs: number }> {
-  const hit = cache.get(file.path);
-  if (hit) return { pdf: hit.pdf.slice(0), convertMs: hit.convertMs, downloadMs: 0 };
-  const d0 = performance.now();
-  const data = await store.download(file.path);
-  const downloadMs = performance.now() - d0;
-  const c0 = performance.now();
-  const pdf = await toPdf(file.name, data);
-  const convertMs = performance.now() - c0;
-  cache.set(file.path, { pdf: pdf.slice(0), convertMs });
-  return { pdf, convertMs, downloadMs };
+  let p = cache.get(file.path);
+  if (!p) {
+    p = (async () => {
+      const d0 = performance.now();
+      const data = await store.download(file.path);
+      const downloadMs = performance.now() - d0;
+      const c0 = performance.now();
+      const pdf = await toPdf(file.name, data);
+      return { pdf, convertMs: performance.now() - c0, downloadMs };
+    })();
+    cache.set(file.path, p);
+    p.catch(() => cache.delete(file.path)); // allow a retry after a failure
+  }
+  const r = await p;
+  return { ...r, pdf: r.pdf.slice(0) };
 }
 
 export async function buildPack(

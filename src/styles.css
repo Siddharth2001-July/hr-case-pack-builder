@@ -127,3 +127,4 @@ dialog h3 { margin: 0 0 8px; }
 .file-list li.previewing { background: var(--brand-2); }
 .statusbar-right { display: flex; gap: 14px; }
 #engine-status.loading::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border: 2px solid var(--muted); border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: -1px; }
+.file-meta .ready { color: var(--ok); font-weight: 600; }

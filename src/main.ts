@@ -48,6 +48,8 @@ let busy = false;
 /** Converted PDFs for the open case (memory only), shared by preview and build. */
 let pdfCache: PdfCache = new Map();
 let previewing: string | null = null;
+/** Paths whose PDF conversion has finished in the background (shown as "ready" in the list). */
+let converted = new Set<string>();
 
 const viewerEl = $("viewer");
 
@@ -104,6 +106,7 @@ async function openCase(id: string, title: string) {
   resetWorkflow();
   caseId = id;
   pdfCache = new Map();
+  converted = new Set();
   previewing = null;
   $("case-list").classList.add("hidden");
   $("file-panel").classList.remove("hidden");
@@ -117,6 +120,25 @@ async function openCase(id: string, title: string) {
   await renderOutputs();
   setStep("build");
   status(`${id}: ${caseFiles.length} documents`);
+  void preconvert(id);
+}
+
+/**
+ * Converts the case's Word/Excel files to PDF in the background, one at a time, as soon as the case
+ * opens, so View and Build usually find the result ready. Stops if the user switches case.
+ */
+async function preconvert(id: string) {
+  for (const f of [...caseFiles]) {
+    if (caseId !== id) return;
+    try {
+      await getPdf(store, f, pdfCache);
+      if (caseId !== id) return;
+      converted.add(f.path);
+      if (!busy) renderFiles();
+    } catch (e) {
+      console.warn(`Background conversion failed for ${f.name}`, e);
+    }
+  }
 }
 
 function renderFiles() {
@@ -137,7 +159,8 @@ function renderFiles() {
     view.title = built ? "Start another pack to preview single documents" : "Preview this document";
     view.onclick = () => previewFile(f);
     const name = el("div", { class: "file-name clickable", title: `${f.name}\nClick to preview` }, f.name,
-      el("div", { class: "file-meta" }, `${fmtSize(f.size)} · ${f.modifiedBy}`));
+      el("div", { class: "file-meta" }, `${fmtSize(f.size)} · ${f.modifiedBy}`,
+        ...(converted.has(f.path) ? [el("span", { class: "ready", title: "Converted to PDF in the background" }, " · ready")] : [])));
     name.onclick = () => { if (!view.disabled) void previewFile(f); };
     ul.append(
       el("li", { class: previewing === f.path ? "previewing" : "" }, cb, typeChip(f.name), name, view,
@@ -154,9 +177,9 @@ async function previewFile(f: StoreItem) {
   previewing = f.path;
   renderFiles();
   try {
-    const cached = pdfCache.has(f.path);
-    status(`${cached ? "Opening" : "Converting"} ${f.name}…`, true);
+    status(`${converted.has(f.path) ? "Opening" : "Converting"} ${f.name}…`, true);
     const r = await getPdf(store, f, pdfCache);
+    converted.add(f.path);
     await showInViewer(r.pdf, { review: false });
     status(`Previewing ${f.name} (read-only)${f.name.toLowerCase().endsWith(".pdf") ? "" : ` · converted in ${fmtMs(r.convertMs)}`}`);
   } catch (e) {
@@ -447,17 +470,13 @@ async function main() {
   await showCases();
   setStep(null);
   status("Ready. Open a case to start.");
-  // Pre-load the PDF and Office engines while the user is browsing cases.
-  const idle = (cb: () => void) =>
-    "requestIdleCallback" in window ? window.requestIdleCallback(cb, { timeout: 2000 }) : setTimeout(cb, 1000);
-  idle(() =>
-    warmUpEngines((state, ms) => {
-      const e = $("engine-status");
-      e.textContent =
-        state === "loading" ? "Preparing document engines…" : state === "ready" ? `Document engines ready (${fmtMs(ms)})` : "";
-      e.classList.toggle("loading", state === "loading");
-    }),
-  );
+  // Start loading the PDF and Office engines straight away (the download is the slow part on a first visit).
+  warmUpEngines((state, ms) => {
+    const e = $("engine-status");
+    e.textContent =
+      state === "loading" ? "Preparing document engines…" : state === "ready" ? `Document engines ready (${fmtMs(ms)})` : "";
+    e.classList.toggle("loading", state === "loading");
+  });
 }
 
 main().catch((e) => {
