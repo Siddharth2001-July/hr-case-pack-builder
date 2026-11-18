@@ -89,8 +89,28 @@ Nothing else in the app changes.
 
 ## Notes for production
 
-- **Performance.** On the sample pack, conversion takes about 0.7 s per Word document and the 11-page pack builds in about 5 s on a laptop. Test with a real 120–150 page pack on the target devices. If it's too slow, run the same conversion on a UK-hosted .NET service (Nutrient .NET SDK) and keep the review UI in the browser.
+- **Performance.** See "Performance" below. Test with a real 120–150 page pack on the target devices. If it's too slow, run the same conversion on a UK-hosted .NET service (Nutrient .NET SDK) and keep the review UI in the browser.
 - **Names.** Names can't be found reliably by pattern alone, so the adviser enters the people in the case. In production this list could be prefilled from the HR case record.
 - **Dates of birth.** These are found by context words near the date. Dates in tables with a "DOB" header in a different row may need "All other dates" plus review.
-- **Asset hosting.** The SDK assets (~160 MB, lazily loaded) are served from the app. Use the SDK's recommended self-hosting setup for production builds.
+- **Asset hosting.** The SDK assets are self-hosted (served by the app, not a Nutrient CDN) and copied from the npm package at install time. The SDK warns this copy step is deprecated; follow the [self-hosting guide](https://www.nutrient.io/guides/web/self-host-assets/) for production builds.
 - **Scanned PDFs.** These have no text layer, so text rules won't find anything in them. The adviser can mark them by hand, or OCR can be added.
+
+## Performance
+
+The SDK runs two WebAssembly engines in the browser: the PDF core (~4.7 MB compressed) and the Office engine for Word and Excel. The Office engine comes in two builds ([`processorEngine`](https://www.nutrient.io/api/web/)):
+
+| Measured on Vercel | `smallerSize` (default here) | `fasterProcessing` (SDK default) |
+|---|---|---|
+| Engine ready, first visit (cold cache) | ~9–20 s | ~120 s |
+| Engine ready, repeat visit | ~1.5 s | ~1.2 s |
+| Per Word/Excel conversion | ~1.6 s | ~1.3 s |
+
+The first visit matters more than 0.3 s per document, so the app uses `smallerSize`. Add `?engine=faster` to the URL to compare. The first request in a region can be much slower until Vercel's edge has cached the files.
+
+What the app does to hide the remaining time:
+
+- **Warm-up on page load.** It preloads the PDF worker and converts a tiny blank DOCX (`public/warmup.docx`), so the Office engine is downloaded, compiled and started before the user needs it.
+- **Background pre-conversion.** When a case opens, its documents are converted one by one in the background and marked "ready". View then opens in under 0.1 s, and Build reuses the results.
+- **Caching.** Vercel serves the assets Brotli-compressed with a one-week `Cache-Control` (`vercel.json`), so repeat visits don't download them again.
+
+Further options for production: precache the engine with a service worker (see the [caching guide](https://www.nutrient.io/guides/web/best-practices/caching-on-the-web/)), or move conversion to a server (Nutrient Document Engine or the .NET SDK) for large packs or slow devices.
