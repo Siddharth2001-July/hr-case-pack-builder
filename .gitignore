@@ -5,3 +5,4 @@ public/nutrient-viewer-lib
 .claude
 # internal planning notes (customer call details), not for publishing
 PLAN.md
+.vercel
