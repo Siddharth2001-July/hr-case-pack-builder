@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HR Case Pack Builder</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">E</span>
+        <div>
+          <div class="brand-title">Case Pack Builder</div>
+          <div class="brand-sub">Example Care Group HR · proof of concept, powered by Nutrient Web SDK</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="badge badge-mock" title="SharePoint Online is simulated in memory for this POC">Mock SharePoint</span>
+        <span id="site-path" class="muted"></span>
+        <span id="user" class="user"></span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- Left: SharePoint library -->
+      <aside class="pane pane-left">
+        <div class="pane-head">
+          <h2 id="lib-title">HR Case Files</h2>
+          <button id="back-to-cases" class="link hidden">← All cases</button>
+        </div>
+        <div id="case-list" class="list"></div>
+        <div id="file-panel" class="hidden">
+          <div class="case-heading">
+            <div id="case-id" class="case-id"></div>
+            <div id="case-title" class="muted"></div>
+          </div>
+          <div class="section-label">Documents <span class="muted">· tick and order for the pack</span></div>
+          <ul id="file-list" class="file-list"></ul>
+          <div class="section-label">Case Pack <span class="muted">· saved outputs</span></div>
+          <ul id="output-list" class="file-list"><li class="empty">Nothing saved yet</li></ul>
+        </div>
+      </aside>
+
+      <!-- Centre: viewer -->
+      <section class="pane pane-center">
+        <div id="viewer" class="viewer"></div>
+        <div id="viewer-empty" class="viewer-empty">
+          <div class="empty-icon">📄</div>
+          <p>Open a case, pick the documents and build the pack.</p>
+          <p class="muted">Word, Excel and PDF files are converted and combined in your browser. Nothing is sent to a third-party service.</p>
+        </div>
+      </section>
+
+      <!-- Right: workflow -->
+      <aside class="pane pane-right">
+        <ol class="steps">
+          <li class="step" id="step-build">
+            <div class="step-head"><span class="num">1</span> Build the pack</div>
+            <div class="step-body">
+              <p class="muted small">Click <b>View</b> on any document to check it first. Ticked documents are then converted to PDF and combined in the order shown, with a bookmark for each.</p>
+              <button id="btn-build" class="btn primary" disabled>Build case pack</button>
+              <div id="build-result" class="result hidden"></div>
+            </div>
+          </li>
+
+          <li class="step" id="step-find">
+            <div class="step-head"><span class="num">2</span> Find personal data</div>
+            <div class="step-body">
+              <label class="field-label" for="names">People in this case <span class="muted">(one per line)</span></label>
+              <textarea id="names" rows="5" placeholder="e.g. child, parent and staff names"></textarea>
+              <label class="check"><input type="checkbox" id="opt-parts" checked /> Also match first names and surnames on their own</label>
+              <label class="check"><input type="checkbox" id="opt-su" checked /> Service user numbers (SU + 5 digits)</label>
+              <label class="check"><input type="checkbox" id="opt-email" checked /> Email addresses</label>
+              <label class="check"><input type="checkbox" id="opt-dob" checked /> Dates of birth</label>
+              <label class="check"><input type="checkbox" id="opt-dates" /> All other dates <span class="muted">(incident dates etc.)</span></label>
+              <button id="btn-find" class="btn primary" disabled>Find and mark</button>
+            </div>
+          </li>
+
+          <li class="step" id="step-review">
+            <div class="step-head"><span class="num">3</span> Review marks</div>
+            <div class="step-body">
+              <p class="muted small">Nothing is removed yet. Click a row to jump to it, <b>Keep</b> to un-mark it. Use the redaction tools in the viewer toolbar to mark anything missed.</p>
+              <div id="rule-chips" class="chips"></div>
+              <ul id="mark-list" class="mark-list"><li class="empty">No marks yet</li></ul>
+            </div>
+          </li>
+
+          <li class="step" id="step-apply">
+            <div class="step-head"><span class="num">4</span> Redact and save</div>
+            <div class="step-body">
+              <label class="check"><input type="checkbox" id="opt-save-combined" checked /> Also save the unredacted combined pack</label>
+              <button id="btn-apply" class="btn danger" disabled>Apply redactions and save</button>
+              <div id="apply-result" class="result hidden"></div>
+              <button id="btn-reset" class="btn hidden">Start another pack</button>
+            </div>
+          </li>
+        </ol>
+      </aside>
+    </main>
+
+    <footer class="statusbar"><span id="status">Loading…</span><span id="sdk-version" class="muted"></span></footer>
+
+    <dialog id="confirm">
+      <form method="dialog">
+        <h3>Apply redactions?</h3>
+        <p id="confirm-text"></p>
+        <p class="muted small">This permanently removes the marked content from the redacted pack. Original files in SharePoint are not changed.</p>
+        <div class="dialog-actions">
+          <button value="cancel" class="btn">Cancel</button>
+          <button value="ok" class="btn danger">Apply and save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

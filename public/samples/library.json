@@ -1,0 +1,58 @@
+{
+  "site": "Example Care Group HR",
+  "library": "HR Case Files",
+  "folders": [
+    {
+      "name": "HR-2026-0147",
+      "title": "Allegation – Oakwood Residential Home",
+      "files": [
+        {
+          "name": "01 Referral letter.docx",
+          "path": "samples/HR-2026-0147/01 Referral letter.docx",
+          "size": 8244
+        },
+        {
+          "name": "02 Incident log.xlsx",
+          "path": "samples/HR-2026-0147/02 Incident log.xlsx",
+          "size": 6992
+        },
+        {
+          "name": "03 Witness statement – P Natarajan.docx",
+          "path": "samples/HR-2026-0147/03 Witness statement – P Natarajan.docx",
+          "size": 8186
+        },
+        {
+          "name": "04 Safeguarding plan.pdf",
+          "path": "samples/HR-2026-0147/04 Safeguarding plan.pdf",
+          "size": 1527
+        },
+        {
+          "name": "05 Safeguarding policy extract.docx",
+          "path": "samples/HR-2026-0147/05 Safeguarding policy extract.docx",
+          "size": 8390
+        }
+      ]
+    },
+    {
+      "name": "HR-2026-0152",
+      "title": "Grievance – Education Services",
+      "files": [
+        {
+          "name": "01 Grievance letter.docx",
+          "path": "samples/HR-2026-0152/01 Grievance letter.docx",
+          "size": 7861
+        },
+        {
+          "name": "02 Overtime timeline.xlsx",
+          "path": "samples/HR-2026-0152/02 Overtime timeline.xlsx",
+          "size": 6784
+        },
+        {
+          "name": "03 Meeting notes.docx",
+          "path": "samples/HR-2026-0152/03 Meeting notes.docx",
+          "size": 7941
+        }
+      ]
+    }
+  ]
+}

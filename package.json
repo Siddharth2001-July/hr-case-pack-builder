@@ -1,0 +1,23 @@
+{
+  "name": "hr-case-pack-builder",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "samples": "node scripts/make-samples.mjs",
+    "postinstall": "node scripts/copy-sdk-assets.mjs"
+  },
+  "dependencies": {
+    "@nutrient-sdk/viewer": "^1.25.0"
+  },
+  "devDependencies": {
+    "docx": "^9.5.0",
+    "exceljs": "^4.4.0",
+    "pdf-lib": "^1.17.1",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}
