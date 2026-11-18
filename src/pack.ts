@@ -10,6 +10,16 @@ type Instance = Awaited<ReturnType<typeof NutrientViewer.load>>;
 export const sdkBaseUrl = `${window.location.origin}${import.meta.env.BASE_URL}`;
 export const licenseKey: string | undefined = import.meta.env.VITE_NUTRIENT_LICENSE_KEY || undefined;
 
+/**
+ * Office engine variant. "faster" (SDK default) downloads a ~18 MB (compressed) ahead-of-time compiled
+ * module and converts quicker; "smaller" downloads ~3.5 MB but converts slower. Override with ?engine=smaller|faster.
+ */
+const engineParam = new URLSearchParams(window.location.search).get("engine");
+export const processorEngine =
+  engineParam === "smaller" ? NutrientViewer.ProcessorEngine.smallerSize : NutrientViewer.ProcessorEngine.fasterProcessing;
+/** SDK options shared by every load / convert / preload call. */
+export const sdkConfig = { baseUrl: sdkBaseUrl, licenseKey, processorEngine };
+
 export interface PackSource {
   name: string;
   path: string;
@@ -54,7 +64,7 @@ export function warmUpEngines(onState: (state: "loading" | "ready" | "failed", m
   const t0 = performance.now();
   onState("loading", 0);
   // Fire-and-forget: a later NutrientViewer.load() reuses this request rather than starting another.
-  void NutrientViewer.preloadWorker({ baseUrl: sdkBaseUrl, licenseKey } as Parameters<typeof NutrientViewer.preloadWorker>[0]).catch(() => {});
+  void NutrientViewer.preloadWorker({ ...sdkConfig } as Parameters<typeof NutrientViewer.preloadWorker>[0]).catch(() => {});
   engineReady = fetch(`${import.meta.env.BASE_URL}warmup.docx`)
     .then((r) => r.arrayBuffer())
     .then((docx) => convertOffice(docx))
@@ -66,7 +76,7 @@ export function warmUpEngines(onState: (state: "loading" | "ready" | "failed", m
 
 function convertOffice(data: ArrayBuffer): Promise<ArrayBuffer> {
   return NutrientViewer.convertToPDF(
-    { document: data, baseUrl: sdkBaseUrl, licenseKey } as Parameters<typeof NutrientViewer.convertToPDF>[0],
+    { document: data, ...sdkConfig } as Parameters<typeof NutrientViewer.convertToPDF>[0],
     null,
     { splitExcelSheetsIntoPages: true, spreadsheetRenderOnlyPrintArea: true },
   );
@@ -131,9 +141,8 @@ export async function buildPack(
   try {
     // Headless: no UI is rendered, the SDK is used purely as a PDF processing engine.
     instance = await NutrientViewer.load({
+      ...sdkConfig,
       document: pdfs[0].pdf,
-      baseUrl: sdkBaseUrl,
-      licenseKey,
       headless: true,
     });
 

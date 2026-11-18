@@ -1,6 +1,6 @@
 import NutrientViewer from "@nutrient-sdk/viewer";
 import { MockSharePointStore, type DocumentStore, type StoreItem } from "./sharepoint";
-import { buildPack, fileKind, getPdf, licenseKey, sdkBaseUrl, warmUpEngines, type BuildResult, type PdfCache } from "./pack";
+import { buildPack, fileKind, getPdf, licenseKey, processorEngine, sdkConfig, warmUpEngines, type BuildResult, type PdfCache } from "./pack";
 import { findPersonalData, listMarks, verifyRemoved, RULE_LABELS, type Mark, type RuleOptions } from "./redaction";
 import { buildAudit } from "./audit";
 
@@ -62,9 +62,8 @@ async function showInViewer(pdf: ArrayBuffer, opts: { review: boolean }) {
   $("viewer-empty").classList.add("hidden");
   viewer = await NutrientViewer.load({
     container: viewerEl,
+    ...sdkConfig,
     document: pdf.slice(0),
-    baseUrl: sdkBaseUrl,
-    licenseKey,
     toolbarItems: NutrientViewer.defaultToolbarItems.filter((i) => TOOLBAR.has(i.type) && (opts.review || !i.type.startsWith("redact"))),
     initialViewState: new NutrientViewer.ViewState({
       sidebarMode: NutrientViewer.SidebarMode.BOOKMARKS,
@@ -439,7 +438,7 @@ async function main() {
   $("user").textContent = store.user.displayName;
   $("site-path").textContent = `${store.siteName} / ${store.libraryName}`;
   $("lib-title").textContent = store.libraryName;
-  $("sdk-version").textContent = `Nutrient Web SDK ${NutrientViewer.version}${licenseKey ? "" : " · trial mode"}`;
+  $("sdk-version").textContent = `Nutrient Web SDK ${NutrientViewer.version} · ${processorEngine === NutrientViewer.ProcessorEngine.smallerSize ? "compact" : "fast"} engine${licenseKey ? "" : " · trial mode"}`;
   $("btn-build").onclick = onBuild;
   $("btn-find").onclick = onFind;
   $("btn-apply").onclick = onApply;
