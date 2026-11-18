@@ -1,0 +1,7 @@
+# Never upload local secrets, internal notes or build artefacts; Vercel rebuilds from source.
+.env
+PLAN.md
+.claude
+node_modules
+dist
+public/nutrient-viewer-lib
