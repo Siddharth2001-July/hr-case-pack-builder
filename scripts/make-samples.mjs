@@ -238,4 +238,6 @@ const expected = {
   suNumbers: Object.values(P).map((x) => x.su).filter(Boolean),
 };
 await writeFile(join(OUT, "expected-pii.json"), JSON.stringify(expected, null, 2));
-console.log("Samples written to public/samples/");
+// Tiny blank document the app converts at idle to pre-load the Office engine (see warmUpEngines in src/pack.ts).
+await writeFile(new URL("../public/warmup.docx", import.meta.url), await docx([p(" ")]));
+console.log("Samples written to public/samples/ (plus public/warmup.docx)");

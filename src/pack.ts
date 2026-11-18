@@ -36,16 +36,49 @@ export function fileKind(name: string): PackSource["kind"] {
   return "other";
 }
 
-/** Converts one file to PDF. PDFs pass straight through; Word and Excel use the SDK's built-in Office engine. */
-export async function toPdf(name: string, data: ArrayBuffer): Promise<ArrayBuffer> {
-  const kind = fileKind(name);
-  if (kind === "pdf") return data;
-  if (kind === "other") throw new Error(`Unsupported file type: ${name}`);
+// ------------------------------------------------------------------ engine warm-up
+/**
+ * The SDK loads two WebAssembly engines lazily: the PDF core (~11 MB) on the first document load and
+ * the Office engine (~80 MB, .NET runtime) on the first Word/Excel conversion. Without a warm-up the
+ * user pays that download + compile on their first click.
+ *
+ * warmUpEngines() runs once when the page is idle: it preloads the PDF worker and converts a tiny
+ * blank DOCX, which makes the Office engine fetch, compile and initialise exactly the files it needs
+ * (the file set varies by browser, so hand-listing URLs to prefetch would be brittle).
+ * Real conversions wait for the warm-up so the two never run concurrently.
+ */
+let engineReady: Promise<void> | null = null;
+
+export function warmUpEngines(onState: (state: "loading" | "ready" | "failed", ms: number) => void): void {
+  if (engineReady) return;
+  const t0 = performance.now();
+  onState("loading", 0);
+  // Fire-and-forget: a later NutrientViewer.load() reuses this request rather than starting another.
+  void NutrientViewer.preloadWorker({ baseUrl: sdkBaseUrl, licenseKey } as Parameters<typeof NutrientViewer.preloadWorker>[0]).catch(() => {});
+  engineReady = fetch(`${import.meta.env.BASE_URL}warmup.docx`)
+    .then((r) => r.arrayBuffer())
+    .then((docx) => convertOffice(docx))
+    .then(
+      () => onState("ready", performance.now() - t0),
+      (e) => { console.warn("Engine warm-up failed; first conversion will load on demand.", e); onState("failed", performance.now() - t0); },
+    );
+}
+
+function convertOffice(data: ArrayBuffer): Promise<ArrayBuffer> {
   return NutrientViewer.convertToPDF(
     { document: data, baseUrl: sdkBaseUrl, licenseKey } as Parameters<typeof NutrientViewer.convertToPDF>[0],
     null,
     { splitExcelSheetsIntoPages: true, spreadsheetRenderOnlyPrintArea: true },
   );
+}
+
+/** Converts one file to PDF. PDFs pass straight through; Word and Excel use the SDK's built-in Office engine. */
+export async function toPdf(name: string, data: ArrayBuffer): Promise<ArrayBuffer> {
+  const kind = fileKind(name);
+  if (kind === "pdf") return data;
+  if (kind === "other") throw new Error(`Unsupported file type: ${name}`);
+  if (engineReady) await engineReady;
+  return convertOffice(data);
 }
 
 /**

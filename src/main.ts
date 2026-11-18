@@ -1,6 +1,6 @@
 import NutrientViewer from "@nutrient-sdk/viewer";
 import { MockSharePointStore, type DocumentStore, type StoreItem } from "./sharepoint";
-import { buildPack, fileKind, getPdf, licenseKey, sdkBaseUrl, type BuildResult, type PdfCache } from "./pack";
+import { buildPack, fileKind, getPdf, licenseKey, sdkBaseUrl, warmUpEngines, type BuildResult, type PdfCache } from "./pack";
 import { findPersonalData, listMarks, verifyRemoved, RULE_LABELS, type Mark, type RuleOptions } from "./redaction";
 import { buildAudit } from "./audit";
 
@@ -448,6 +448,17 @@ async function main() {
   await showCases();
   setStep(null);
   status("Ready. Open a case to start.");
+  // Pre-load the PDF and Office engines while the user is browsing cases.
+  const idle = (cb: () => void) =>
+    "requestIdleCallback" in window ? window.requestIdleCallback(cb, { timeout: 2000 }) : setTimeout(cb, 1000);
+  idle(() =>
+    warmUpEngines((state, ms) => {
+      const e = $("engine-status");
+      e.textContent =
+        state === "loading" ? "Preparing document engines…" : state === "ready" ? `Document engines ready (${fmtMs(ms)})` : "";
+      e.classList.toggle("loading", state === "loading");
+    }),
+  );
 }
 
 main().catch((e) => {
